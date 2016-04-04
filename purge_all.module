@@ -1,0 +1,91 @@
+<?php
+/**
+ * @file
+ * Code for the Purge All module.
+ */
+
+/**
+ * Implements hook_form_FORM_ID_alter() for expire_admin_settings_form().
+ */
+function purge_all_form_expire_admin_settings_form_alter(&$form, &$form_state) {
+  $form['tabs']['node']['expire']['purge_all_expire_node']
+    = _purge_all_form_element(variable_get('purge_all_expire_node', FALSE));
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for node_type_form().
+ */
+function purge_all_form_node_type_form_alter(&$form, &$form_state) {
+  $node_type = $form['#node_type']->type;
+
+  $form['expire']['node_expires']['purge_all_expire_node']
+    = _purge_all_form_element(variable_get('purge_all_expire_node_' . $node_type, FALSE));
+}
+
+/**
+ * Build form element to activate Purge All.
+ *
+ * @param bool $default_value
+ *   (Default: FALSE) The default value for the form behavior.
+ *
+ * @return array
+ *   Form API element definition for Purge All activation.
+ */
+function _purge_all_form_element($default_value = FALSE) {
+  return array(
+    '#type' => 'checkbox',
+    '#title' => t('All Pages'),
+    '#description' => t('Expire all URLs of the site domain.'),
+    '#default_value' => $default_value,
+  );
+}
+
+/**
+ * Issue a PURGEALL request to configured proxies.
+ */
+function purge_all_purge() {
+  $options = array(
+    'method' => 'PURGEALL',
+  );
+
+  $results = array();
+  $proxy_urls = explode(' ', variable_get('purge_proxy_urls', 'http://localhost:80'));
+  foreach ($proxy_urls as $proxy_url) {
+    $result = drupal_http_request($proxy_url, $options);
+    $result->purge_url = $proxy_url;
+    $results[] = $result;
+  }
+
+  _purge_all_logging($results);
+  return $results;
+}
+
+/**
+ * Logs result of the purge.
+ *
+ * @param array $results
+ *   Array of drupal_http_request result objects.
+ *
+ * @see drupal_http_request
+ */
+function _purge_all_logging($results) {
+  foreach ($results as $result) {
+    if ($result->error || $result->code >= 400 || $result->code < 200) {
+      watchdog('purge', 'Failure to purge all URLS on %proxy: %error',
+        array(
+          '%proxy' => $result->purge_url,
+          '%error' => $result->error ? $result->error : 'HTTP ' . $result->code . ' ' . $result->status_message,
+        ),
+        WATCHDOG_ERROR
+      );
+    }
+    else {
+      watchdog('purge', 'All URLs purged from proxy %proxy',
+        array(
+          '%proxy' => $result->purge_url,
+        ),
+        WATCHDOG_NOTICE
+      );
+    }
+  }
+}

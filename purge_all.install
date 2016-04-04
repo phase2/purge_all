@@ -1,0 +1,25 @@
+<?php
+/**
+ * @file
+ * Installation routines for Purge All module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function purge_all_install() {
+  $types = array(
+    'node' => 'Node',
+  );
+
+  foreach ($types as $type => $label) {
+    $handler = variable_get('expire_handler_' . $type, FALSE);
+    if ($handler) {
+      drupal_set_message(t('Clobbered existing expire handler %handler for type %type.', array(
+        '%handler' => $handler,
+        '%type' => $type,
+      )), 'warning');
+    }
+    variable_set('expire_handler_' . $type, 'PurgeAllExpire' . $label);
+  }
+}

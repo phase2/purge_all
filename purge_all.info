@@ -1,0 +1,7 @@
+name = Purge All
+description = Purging all Domain URLs via PURGEALL requests.
+package = Performance and scalability
+core = 7.x
+configure = admin/config/system/expire
+dependencies[] = purge
+files[] = includes/PurgeAllExpireNode.php
